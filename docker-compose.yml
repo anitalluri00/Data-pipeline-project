@@ -1,0 +1,21 @@
+version: '3.8'
+services:
+  mysql-db:
+    image: mysql:8
+    container_name: mysql-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: data_pipeline
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+  streamlit-app:
+    build: .
+    container_name: streamlit-app
+    depends_on:
+      - mysql-db
+    ports:
+      - "8501:8501"
+volumes:
+  mysql-data:
