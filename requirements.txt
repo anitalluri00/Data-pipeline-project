@@ -11,4 +11,4 @@ mysql-connector-python
 apache-airflow
 lxml
 html5lib
-beautifulsoup4
+openpyxl
