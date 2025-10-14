@@ -9,3 +9,4 @@ beautifulsoup4
 pyjanitor
 mysql-connector-python
 apache-airflow
+lxml
