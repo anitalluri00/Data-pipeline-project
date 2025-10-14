@@ -8,7 +8,6 @@ requests
 beautifulsoup4
 pyjanitor
 mysql-connector-python
-apache-airflow
 lxml
 html5lib
 openpyxl
