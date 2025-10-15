@@ -4,9 +4,14 @@ import janitor
 
 def transform_data(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Clean and transform uploaded/extracted data
+    Clean and normalize uploaded data
     """
-    df = df.clean_names()
+    try:
+        df = df.clean_names()
+    except Exception:
+        df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
     df = df.dropna(how="all")
-    df[df.select_dtypes(include=np.number).columns] = df.select_dtypes(include=np.number).fillna(0)
+    num_cols = df.select_dtypes(include=np.number).columns
+    df[num_cols] = df[num_cols].fillna(0)
+    df.columns = [c.replace("-", "_").replace(".", "_") for c in df.columns]
     return df
