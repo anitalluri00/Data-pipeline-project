@@ -4,74 +4,80 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
-from io import BytesIO
-from etl.transform import transform_data
-from etl.load import load_data, get_mysql_connection
 import requests
+from io import BytesIO
 from urllib.parse import urlparse
 
-st.set_page_config(page_title="Data Pipeline Dashboard", layout="wide")
-st.title("📊 Data Pipeline Dashboard with File/Link Upload")
+from etl.transform import transform_data
+from etl.load import load_data, get_mysql_connection
 
-# --- Step 1: Upload or provide link ---
-st.header("1️⃣ Upload File or Enter URL")
+st.set_page_config(page_title="Data Collector", layout="wide")
+st.title("📦 Unified Data Collector (Upload / URL / Process / Store)")
 
-uploaded_file = st.file_uploader("Upload CSV, Excel or TXT", type=["csv", "xlsx", "txt"])
+st.markdown("Upload any **CSV / Excel / TXT** or provide a **link**, and this app will clean, process, and store it in MySQL.")
+
+# --- Upload or URL Input ---
+uploaded_file = st.file_uploader("📁 Upload File", type=["csv", "xlsx", "txt"])
+url_input = st.text_input("🔗 Or enter a link (direct to CSV/Excel)")
+
 data = None
 
-url_input = st.text_input("Or enter a link (CSV/Excel)")
-
-if uploaded_file:
-    try:
+try:
+    if uploaded_file:
         if uploaded_file.name.endswith(".csv") or uploaded_file.name.endswith(".txt"):
-            data = pd.read_csv(uploaded_file)
+            data = pd.read_csv(uploaded_file, on_bad_lines="skip")
         elif uploaded_file.name.endswith(".xlsx"):
             data = pd.read_excel(uploaded_file, engine="openpyxl")
         st.success(f"✅ Successfully uploaded `{uploaded_file.name}`")
-    except Exception as e:
-        st.error(f"Error reading file: {e}")
 
-elif url_input:
-    try:
+    elif url_input:
         response = requests.get(url_input)
         response.raise_for_status()
         filename = urlparse(url_input).path.split("/")[-1]
         if filename.endswith(".csv") or filename.endswith(".txt"):
-            data = pd.read_csv(BytesIO(response.content))
+            data = pd.read_csv(BytesIO(response.content), on_bad_lines="skip")
         elif filename.endswith(".xlsx"):
             data = pd.read_excel(BytesIO(response.content), engine="openpyxl")
-        st.success(f"✅ Successfully loaded from link: {url_input}")
-    except Exception as e:
-        st.error(f"Error fetching data from URL: {e}")
+        st.success(f"✅ Successfully loaded data from URL")
+
+except Exception as e:
+    st.error(f"Error reading data: {e}")
 
 if data is not None:
     st.dataframe(data.head())
 
-    # --- Step 2: Transform ---
+    # --- Transform ---
     st.header("2️⃣ Transform Data")
     transformed_data = transform_data(data)
     st.dataframe(transformed_data.head())
 
-    # --- Step 3: Load to MySQL ---
-    st.header("3️⃣ Load to MySQL")
-    conn = get_mysql_connection()
-    load_data(transformed_data, conn)
-    st.success("✅ Data loaded into MySQL successfully!")
+    # --- Load ---
+    st.header("3️⃣ Load into MySQL")
+    try:
+        conn = get_mysql_connection()
+        load_data(transformed_data, conn)
+        st.success("✅ Data successfully loaded into MySQL!")
+    except Exception as e:
+        st.error(f"MySQL Error: {e}")
 
-    # --- Step 4: Visualization ---
-    st.header("4️⃣ Automated Reporting")
-    numeric_cols = transformed_data.select_dtypes(include=np.number).columns
-    if len(numeric_cols) > 0:
+    # --- Visualization ---
+    st.header("4️⃣ Quick Data Insights")
+    num_cols = transformed_data.select_dtypes(include=np.number).columns
+    if len(num_cols) > 0:
         fig, ax = plt.subplots()
-        sns.histplot(transformed_data[numeric_cols[0]], kde=True, ax=ax)
+        sns.histplot(transformed_data[num_cols[0]], kde=True, ax=ax)
         st.pyplot(fig)
-
-        fig2 = px.histogram(transformed_data, x=numeric_cols[0])
-        st.plotly_chart(fig2)
+        st.plotly_chart(px.histogram(transformed_data, x=num_cols[0]))
     else:
         st.warning("No numeric columns available for plotting.")
 
-    # --- Step 5: Download report ---
+    # --- Download ---
+    st.header("5️⃣ Download Processed Data")
     excel_file = BytesIO()
     transformed_data.to_excel(excel_file, index=False)
-    st.download_button(label="⬇️ Download Excel Report", data=excel_file.getvalue(), file_name="report.xlsx")
+    st.download_button(
+        label="⬇️ Download Excel Report",
+        data=excel_file.getvalue(),
+        file_name="processed_data.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
