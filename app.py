@@ -7,21 +7,15 @@ import plotly.express as px
 import requests
 from io import BytesIO
 from urllib.parse import urlparse
-
 from etl.transform import transform_data
 from etl.load import load_data, get_mysql_connection
 
 st.set_page_config(page_title="Data Collector", layout="wide")
 st.title("📦 Unified Data Collector (Upload / URL / Process / Store)")
-
 st.markdown("Upload any **CSV / Excel / TXT** or provide a **link**, and this app will clean, process, and store it in MySQL.")
-
-# --- Upload or URL Input ---
 uploaded_file = st.file_uploader("📁 Upload File", type=["csv", "xlsx", "txt"])
 url_input = st.text_input("🔗 Or enter a link (direct to CSV/Excel)")
-
 data = None
-
 try:
     if uploaded_file:
         if uploaded_file.name.endswith(".csv") or uploaded_file.name.endswith(".txt"):
@@ -29,7 +23,6 @@ try:
         elif uploaded_file.name.endswith(".xlsx"):
             data = pd.read_excel(uploaded_file, engine="openpyxl")
         st.success(f"✅ Successfully uploaded `{uploaded_file.name}`")
-
     elif url_input:
         response = requests.get(url_input)
         response.raise_for_status()
@@ -39,19 +32,13 @@ try:
         elif filename.endswith(".xlsx"):
             data = pd.read_excel(BytesIO(response.content), engine="openpyxl")
         st.success(f"✅ Successfully loaded data from URL")
-
 except Exception as e:
     st.error(f"Error reading data: {e}")
-
 if data is not None:
     st.dataframe(data.head())
-
-    # --- Transform ---
     st.header("2️⃣ Transform Data")
     transformed_data = transform_data(data)
     st.dataframe(transformed_data.head())
-
-    # --- Load ---
     st.header("3️⃣ Load into MySQL")
     try:
         conn = get_mysql_connection()
@@ -59,8 +46,6 @@ if data is not None:
         st.success("✅ Data successfully loaded into MySQL!")
     except Exception as e:
         st.error(f"MySQL Error: {e}")
-
-    # --- Visualization ---
     st.header("4️⃣ Quick Data Insights")
     num_cols = transformed_data.select_dtypes(include=np.number).columns
     if len(num_cols) > 0:
@@ -70,8 +55,6 @@ if data is not None:
         st.plotly_chart(px.histogram(transformed_data, x=num_cols[0]))
     else:
         st.warning("No numeric columns available for plotting.")
-
-    # --- Download ---
     st.header("5️⃣ Download Processed Data")
     excel_file = BytesIO()
     transformed_data.to_excel(excel_file, index=False)
